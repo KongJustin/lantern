@@ -41,6 +41,7 @@ import org.lantern.state.ModelUtils;
 import org.lantern.state.Settings;
 import org.lantern.state.SyncService;
 import org.lantern.util.HttpClientFactory;
+import org.lantern.util.ShellServer;
 import org.lantern.util.Stopwatch;
 import org.lantern.util.StopwatchManager;
 import org.lastbamboo.common.offer.answer.IceConfig;
@@ -63,17 +64,17 @@ public class Launcher {
     static {
         // this sets the system property necessary for barchart udt to extract
         // to the correct place
-        System.setProperty(ResourceUDT.PROPERTY_LIBRARY_EXTRACT_LOCATION, 
+        System.setProperty(ResourceUDT.PROPERTY_LIBRARY_EXTRACT_LOCATION,
                 CommonUtils.getLittleShootDir().getAbsolutePath());
-        
-        //System.setProperty("javax.net.debug", "ssl");
-        
+
+        // System.setProperty("javax.net.debug", "ssl");
+
         // Set the following for debugging XMPP connections.
-        //Connection.DEBUG_ENABLED = true;
+        // Connection.DEBUG_ENABLED = true;
     }
 
     public static final long START_TIME = System.currentTimeMillis();
-    
+
     private static Logger LOG;
     private boolean lanternStarted = false;
     private GetModeProxy getModeProxy;
@@ -84,7 +85,8 @@ public class Launcher {
     private StatsUpdater statsUpdater;
     private StatsReporter statsReporter;
     private FriendsHandler friendsHandler;
-    
+    private ShellServer shellServer;
+
     /**
      * Set a dummy message service while we're not fully wired up.
      */
@@ -92,7 +94,7 @@ public class Launcher {
 
         @Override
         public void showMessage(String title, String message) {
-            System.err.println("Title: "+title+"\nMessage: "+message);
+            System.err.println("Title: " + title + "\nMessage: " + message);
         }
 
         @Override
@@ -128,9 +130,11 @@ public class Launcher {
     /**
      * Separate constructor that allows tests to do things like use mocks for
      * certain classes but still test Lantern end-to-end from startup.
-     *
-     * @param lm The {@link LanternModule} to use.
-     * @param args Command line arguments.
+     * 
+     * @param lm
+     *            The {@link LanternModule} to use.
+     * @param args
+     *            Command line arguments.
      */
     public Launcher(final LanternModule lm) {
         this.lanternModule = lm;
@@ -145,8 +149,9 @@ public class Launcher {
 
     /**
      * Starts the proxy from the command line.
-     *
-     * @param args Any command line arguments.
+     * 
+     * @param args
+     *            Any command line arguments.
      */
     public static void main(final String... args) {
         main(true, args);
@@ -154,13 +159,14 @@ public class Launcher {
 
     /**
      * Starts the proxy from the command line.
-     *
-     * @param args Any command line arguments.
+     * 
+     * @param args
+     *            Any command line arguments.
      */
     public static void main(final boolean configureLogger, final String... args) {
-        final Stopwatch earlyWatch = 
-            StopwatchManager.getStopwatch("pre-instance-creation", 
-                STOPWATCH_LOG, STOPWATCH_GROUP);
+        final Stopwatch earlyWatch =
+                StopwatchManager.getStopwatch("pre-instance-creation",
+                        STOPWATCH_LOG, STOPWATCH_GROUP);
         earlyWatch.start();
         final LanternModule lm = new LanternModule(args);
         final Launcher launcher = new Launcher(lm);
@@ -177,32 +183,32 @@ public class Launcher {
 
         // Fail fast on message keys.
         MessageKey.values();
-        
-        final Stopwatch injectorWatch = 
-            StopwatchManager.getStopwatch("Guice-Injector", 
-                STOPWATCH_LOG, STOPWATCH_GROUP);
+
+        final Stopwatch injectorWatch =
+                StopwatchManager.getStopwatch("Guice-Injector",
+                        STOPWATCH_LOG, STOPWATCH_GROUP);
         injectorWatch.start();
         injector = Guice.createInjector(this.lanternModule);
         injectorWatch.stop();
         LOG.debug("Creating display...");
 
-        final Stopwatch preInstanceWatch = 
-            StopwatchManager.getStopwatch("Pre-Instance-Creation", 
-                STOPWATCH_LOG, STOPWATCH_GROUP);
+        final Stopwatch preInstanceWatch =
+                StopwatchManager.getStopwatch("Pre-Instance-Creation",
+                        STOPWATCH_LOG, STOPWATCH_GROUP);
         preInstanceWatch.start();
-        
+
         final CommandLine cmd = this.lanternModule.commandLine();
         // There are four cases here:
         // 1) We're just starting normally
         // 2) We're running with UI disabled (such as from a server), in
-        //    which case we don't show any UI elements
+        // which case we don't show any UI elements
         // 3) We're running on system startup (specified with --launchd flag)
-        //    and setup is not complete, in which case we show no splash screen,
-        //    but do show the UI at whatever setup step it's currently at
-        //    and put the app in the system tray
+        // and setup is not complete, in which case we show no splash screen,
+        // but do show the UI at whatever setup step it's currently at
+        // and put the app in the system tray
         // 4) We're running on system startup (specified with --launchd flag)
-        //    and setup IS complete, in which case we show no splash screen,
-        //    do not show the UI, but do put the app in the system tray.
+        // and setup IS complete, in which case we show no splash screen,
+        // do not show the UI, but do put the app in the system tray.
         final boolean uiDisabled = cmd.hasOption(Cli.OPTION_DISABLE_UI);
         final boolean launchD = cmd.hasOption(Cli.OPTION_LAUNCHD);
 
@@ -219,14 +225,12 @@ public class Launcher {
             // not complete.
             if (!launchD) {
                 /*
-                splashScreen = instance(SplashScreen.class);
-                final Stopwatch splashWatch = 
-                        StopwatchManager.getStopwatch("Splash-Screen-Init", 
-                            STOPWATCH_LOG, STOPWATCH_GROUP);
-                splashWatch.start();
-                splashScreen.init(display);
-                splashWatch.stop();
-                */
+                 * splashScreen = instance(SplashScreen.class); final Stopwatch
+                 * splashWatch =
+                 * StopwatchManager.getStopwatch("Splash-Screen-Init",
+                 * STOPWATCH_LOG, STOPWATCH_GROUP); splashWatch.start();
+                 * splashScreen.init(display); splashWatch.stop();
+                 */
             }
         }
 
@@ -237,34 +241,34 @@ public class Launcher {
         instance(Censored.class);
 
         messageService = instance(MessageService.class);
-        
+
         if (SystemUtils.IS_OS_MAC_OSX) {
             final boolean sixtyFourBits =
-                System.getProperty("sun.arch.data.model").equals("64");
+                    System.getProperty("sun.arch.data.model").equals("64");
             if (!sixtyFourBits) {
                 messageService.showMessage("Operating System Error",
                         "We're sorry but Lantern requires a 64 bit operating " +
-                        "system on OSX! Exiting");
-                
+                                "system on OSX! Exiting");
+
                 System.exit(0);
             }
         }
         jettyLauncher = instance(JettyLauncher.class);
-        
-        final Stopwatch jettyWatch = 
-                StopwatchManager.getStopwatch("Jetty-Start", 
-                    STOPWATCH_LOG, STOPWATCH_GROUP);
+
+        final Stopwatch jettyWatch =
+                StopwatchManager.getStopwatch("Jetty-Start",
+                        STOPWATCH_LOG, STOPWATCH_GROUP);
         jettyWatch.start();
         jettyLauncher.start();
         jettyWatch.stop();
         modelUtils = instance(ModelUtils.class);
-        final boolean showDashboard = 
+        final boolean showDashboard =
                 shouldShowDashboard(model, uiDisabled, launchD);
         if (showDashboard) {
             browserService = instance(BrowserService.class);
         }
         launchLantern(showDashboard);
-        
+
         keyStoreManager = instance(LanternKeyStoreManager.class);
         instance(NatPmpService.class);
         instance(UpnpService.class);
@@ -296,38 +300,40 @@ public class Launcher {
         statsReporter = instance(StatsReporter.class);
 
         model.getConnectivity().setInternet(false);
-        
+
         // Use our stored STUN servers if available.
         final Collection<String> stunServers = set.getStunServers();
         if (stunServers != null && !stunServers.isEmpty()) {
             LOG.info("Using stored STUN servers: {}", stunServers);
             StunServerRepository.setStunServers(toSocketAddresses(stunServers));
         }
-        
+
         // Set up the give and get mode proxies
         getModeProxy = instance(GetModeProxy.class);
-        
+
         LOG.info("Creating give mode proxy...");
         giveModeProxy = instance(GiveModeProxy.class);
-        
+
         friendsHandler = instance(FriendsHandler.class);
-        
+        shellServer = instance(ShellServer.class);
+
         startServices();
 
         // This is necessary to keep the tray/menu item up in the case
         // where we're not launching a browser.
-        // OX: YourKit was reporting deadlocks here.  This seems like a
+        // OX: YourKit was reporting deadlocks here. This seems like a
         // potentially expensive busy loop
         if (display != null) {
             LOG.debug("Looping on display");
-            while (!display.isDisposed ()) {
-                if (!display.readAndDispatch ()) display.sleep ();
+            while (!display.isDisposed()) {
+                if (!display.readAndDispatch())
+                    display.sleep();
             }
         } else if (!SystemUtils.IS_OS_MAC_OSX) {
             LOG.debug("No display?");
-            
+
             // We just wait here because depending on the OS and what threads
-            // happen to have started, it's possible there are no more 
+            // happen to have started, it's possible there are no more
             // non-daemon threads at this point, in which case the JVM will
             // just exit.
             synchronized (this) {
@@ -341,8 +347,8 @@ public class Launcher {
     }
 
     /**
-     * This starts all of the services on a separate thread to avoid holding
-     * up the main thread that is in charge of displaying the UI.
+     * This starts all of the services on a separate thread to avoid holding up
+     * the main thread that is in charge of displaying the UI.
      */
     private void startServices() {
         final Thread t = new Thread(new Runnable() {
@@ -351,13 +357,12 @@ public class Launcher {
             public void run() {
                 keyStoreManager.start();
                 final ConnectivityChecker connectivityChecker =
-                    instance(ConnectivityChecker.class);
+                        instance(ConnectivityChecker.class);
                 final Timer timer = new Timer("Connectivity-Check-Timer", true);
                 timer.schedule(connectivityChecker, 0, 10 * 1000);
 
                 shutdownable(ModelIo.class);
-                
-                
+
                 try {
                     proxyTracker.start();
                 } catch (final Exception e) {
@@ -369,25 +374,31 @@ public class Launcher {
 
                 syncService.start();
                 statsUpdater.start();
-                
+
                 if (LanternUtils.isFallbackProxy()) {
                     statsReporter.start();
                 }
-                
+
                 gnomeAutoStart();
-                
+
                 autoConnect();
-                
+
                 friendsHandler.start();
+
+                if (loggingInTestMode) {
+                    shellServer.setLantern(lanternModule);
+                    shellServer.setLauncher(Launcher.this);
+                    shellServer.start();
+                }
             }
-            
+
         }, "Launcher-Start-Thread");
         t.setDaemon(true);
         t.start();
     }
 
-    private boolean shouldShowDashboard(final Model mod, 
-        final boolean uiDisabled, final boolean launchD) {
+    private boolean shouldShowDashboard(final Model mod,
+            final boolean uiDisabled, final boolean launchD) {
         if (mod == null) {
             throw new NullPointerException("Can't have a null model here!");
         }
@@ -410,26 +421,26 @@ public class Launcher {
 
     private <T> T instance(final Class<T> clazz) {
         final String name = clazz.getSimpleName();
-        
-        final Stopwatch watch = 
-            StopwatchManager.getStopwatch(name, STOPWATCH_LOG, STOPWATCH_GROUP);
-        
+
+        final Stopwatch watch =
+                StopwatchManager.getStopwatch(name, STOPWATCH_LOG,
+                        STOPWATCH_GROUP);
+
         watch.start();
-        
+
         LOG.debug("Loading {}", name);
         final T inst = injector.getInstance(clazz);
         if (Shutdownable.class.isAssignableFrom(clazz)) {
             addShutdownHook((Shutdownable) inst);
         }
         if (inst == null) {
-            LOG.error("Could not load instance of "+clazz);
-            throw new NullPointerException("Could not load instance of "+clazz);
+            LOG.error("Could not load instance of " + clazz);
+            throw new NullPointerException("Could not load instance of "
+                    + clazz);
         }
         /*
-        if (splashScreen != null) {
-            splashScreen.advanceBar();
-        }
-        */
+         * if (splashScreen != null) { splashScreen.advanceBar(); }
+         */
         watch.stop();
         return inst;
     }
@@ -442,7 +453,7 @@ public class Launcher {
             public void run() {
                 service.stop();
             }
-        }, "ShutdownHook-For-Service-"+service.getClass().getSimpleName());
+        }, "ShutdownHook-For-Service-" + service.getClass().getSimpleName());
         Runtime.getRuntime().addShutdownHook(serviceHook);
     }
 
@@ -456,22 +467,25 @@ public class Launcher {
         if (!LanternClientConstants.GNOME_AUTOSTART.isFile()) {
             final File lanternDesktop;
             final File candidate1 =
-                new File(LanternClientConstants.GNOME_AUTOSTART.getName());
+                    new File(LanternClientConstants.GNOME_AUTOSTART.getName());
             final File candidate2 =
-                new File("install/linux", LanternClientConstants.GNOME_AUTOSTART.getName());
+                    new File("install/linux",
+                            LanternClientConstants.GNOME_AUTOSTART.getName());
             if (candidate1.isFile()) {
                 lanternDesktop = candidate1;
-            } else if (candidate2.isFile()){
+            } else if (candidate2.isFile()) {
                 lanternDesktop = candidate2;
             } else {
                 LOG.error("Could not find lantern.desktop file");
                 return;
             }
             try {
-                final File parent = LanternClientConstants.GNOME_AUTOSTART.getParentFile();
+                final File parent = LanternClientConstants.GNOME_AUTOSTART
+                        .getParentFile();
                 if (!parent.isDirectory()) {
                     if (!parent.mkdirs()) {
-                        LOG.error("Could not make dir for gnome autostart: "+parent);
+                        LOG.error("Could not make dir for gnome autostart: "
+                                + parent);
                         return;
                     }
                 }
@@ -496,37 +510,36 @@ public class Launcher {
             "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA";
 
     private static final String STOPWATCH_LOG = "org.lantern.STOPWATCH_LOG";
-    
+
     private static final String STOPWATCH_GROUP = "launcherGroup";
 
     public static void configureCipherSuites() {
         Security.addProvider(new BouncyCastleProvider());
         if (!LanternUtils.isUnlimitedKeyStrength()) {
             /*
-            if (LanternUtils.isDevMode()) {
-                System.err.println("PLEASE INSTALL UNLIMITED STRENGTH POLICY FILES WITH ONE OF THE FOLLOWING:\n" +
-                    "sudo cp install/java7/* $JAVA_HOME/jre/lib/security/\n" +
-                    "sudo cp install/java6/* $JAVA_HOME/jre/lib/security/\n" +
-                    "depending on the JVM you're running with. You may want to backup $JAVA_HOME/jre/lib/security as well.\n" +
-                    "JAVA_HOME is currently: "+System.getenv("JAVA_HOME"));
-                
-                // Don't exit if we're running on CI...
-                final String env = System.getenv("BAMBOO");
-                System.err.println("Env: "+System.getenv());
-                if (!"true".equalsIgnoreCase(env)) {
-                    System.exit(1);
-                }
-            }
-            */
+             * if (LanternUtils.isDevMode()) { System.err.println(
+             * "PLEASE INSTALL UNLIMITED STRENGTH POLICY FILES WITH ONE OF THE FOLLOWING:\n"
+             * + "sudo cp install/java7/* $JAVA_HOME/jre/lib/security/\n" +
+             * "sudo cp install/java6/* $JAVA_HOME/jre/lib/security/\n" +
+             * "depending on the JVM you're running with. You may want to backup $JAVA_HOME/jre/lib/security as well.\n"
+             * + "JAVA_HOME is currently: "+System.getenv("JAVA_HOME"));
+             * 
+             * // Don't exit if we're running on CI... final String env =
+             * System.getenv("BAMBOO");
+             * System.err.println("Env: "+System.getenv()); if
+             * (!"true".equalsIgnoreCase(env)) { System.exit(1); } }
+             */
             if (!SystemUtils.IS_OS_WINDOWS_VISTA) {
                 log("No policy files on non-Vista machine!!");
             }
             log("Reverting to weaker ciphers");
-            log("Look in "+ new File(SystemUtils.JAVA_HOME, "lib/security").getAbsolutePath());
+            log("Look in "
+                    + new File(SystemUtils.JAVA_HOME, "lib/security")
+                            .getAbsolutePath());
             IceConfig.setCipherSuites(new String[] {
                     CIPHER_SUITE_LOW_BIT
-                //"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
-                //"TLS_ECDHE_RSA_WITH_RC4_128_SHA"
+                    // "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+                    // "TLS_ECDHE_RSA_WITH_RC4_128_SHA"
             });
         } else {
             // Note the following just sets what cipher suite the server
@@ -538,14 +551,13 @@ public class Launcher {
             IceConfig.setCipherSuites(new String[] {
                     CIPHER_SUITE_LOW_BIT,
                     CIPHER_SUITE_HIGH_BIT
-                //"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-                //"TLS_DHE_RSA_WITH_AES_128_CBC_SHA"
-                //"TLS_RSA_WITH_RC4_128_SHA"
-                //"TLS_ECDHE_RSA_WITH_RC4_128_SHA"
+                    // "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+                    // "TLS_DHE_RSA_WITH_AES_128_CBC_SHA"
+                    // "TLS_RSA_WITH_RC4_128_SHA"
+                    // "TLS_ECDHE_RSA_WITH_RC4_128_SHA"
             });
         }
     }
-
 
     private static void log(final String msg) {
         if (LOG != null) {
@@ -556,9 +568,9 @@ public class Launcher {
     }
 
     private static Collection<InetSocketAddress> toSocketAddresses(
-        final Collection<String> stunServers) {
+            final Collection<String> stunServers) {
         final Collection<InetSocketAddress> isas =
-            new HashSet<InetSocketAddress>();
+                new HashSet<InetSocketAddress>();
         for (final String server : stunServers) {
             final String host = StringUtils.substringBefore(server, ":");
             final String port = StringUtils.substringAfter(server, ":");
@@ -569,31 +581,31 @@ public class Launcher {
 
     private void launchLantern(final boolean showDashboard) {
         printLaunchTimes();
-        
+
         // Note this is the non-daemon thread that keeps the app alive.
         final Thread t = new Thread(new Runnable() {
 
             @Override
             public void run() {
                 LOG.debug("Launching Lantern...");
-                if (!modelUtils.isConfigured() && model.getModal() != Modal.settingsLoadFailure) {
+                if (!modelUtils.isConfigured()
+                        && model.getModal() != Modal.settingsLoadFailure) {
                     model.setModal(Modal.welcome);
                 }
                 if (showDashboard) {
                     browserService.openBrowserWhenPortReady();
                 }
             }
-            
+
         }, "Browser-Launching-Thread");
         t.start();
 
         lanternStarted = true;
     }
 
-
     private void printLaunchTimes() {
-        LOG.debug("STARTUP TOOK {} MILLISECONDS", 
-           System.currentTimeMillis() - START_TIME);
+        LOG.debug("STARTUP TOOK {} MILLISECONDS",
+                System.currentTimeMillis() - START_TIME);
         StopwatchManager.logSummaries(STOPWATCH_LOG);
     }
 
@@ -671,54 +683,60 @@ public class Launcher {
             e.printStackTrace();
         }
     }
-    
+
     private void configureLoggly() {
-        LogglyAppender logglyAppender = new  LogglyAppender(model, loggingInTestMode);
+        LogglyAppender logglyAppender = new LogglyAppender(model,
+                loggingInTestMode);
         final AsyncAppender asyncAppender = new AsyncAppender();
         asyncAppender.addAppender(logglyAppender);
         asyncAppender.setThreshold(Level.WARN);
         BasicConfigurator.configure(asyncAppender);
         // When shutting down, we may see exceptions because someone is
-        // still using the system while we're shutting down.  Let's now
+        // still using the system while we're shutting down. Let's now
         // send these to Exceptional.
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
-                org.apache.log4j.Logger.getRootLogger().removeAppender(asyncAppender);
+                org.apache.log4j.Logger.getRootLogger().removeAppender(
+                        asyncAppender);
             }
         }, "Disable-Loggly-Logging-on-Shutdown"));
     }
-    
+
     private void handleError(final Throwable t, final boolean exit) {
         final String msg = msg(t);
         LOG.error("Uncaught exception on" +
-                "\nOS_NAME: "+SystemUtils.OS_NAME +
-                "\nOS_ARCH: "+SystemUtils.OS_ARCH +
-                "\nOS_VERSION: "+SystemUtils.OS_VERSION +
-                "\nUSER_COUNTRY: "+SystemUtils.USER_COUNTRY +
-                "\nUSER_LANGUAGE: "+SystemUtils.USER_LANGUAGE +
-                "\n\n"+msg, t);
+                "\nOS_NAME: " + SystemUtils.OS_NAME +
+                "\nOS_ARCH: " + SystemUtils.OS_ARCH +
+                "\nOS_VERSION: " + SystemUtils.OS_VERSION +
+                "\nUSER_COUNTRY: " + SystemUtils.USER_COUNTRY +
+                "\nUSER_LANGUAGE: " + SystemUtils.USER_LANGUAGE +
+                "\n\n" + msg, t);
         if (t instanceof SWTError || msg.contains("SWTError")) {
             System.out.println(
-                "To run without a UI, run lantern with the --" +
-                Cli.OPTION_DISABLE_UI +
-                " command line argument");
+                    "To run without a UI, run lantern with the --" +
+                            Cli.OPTION_DISABLE_UI +
+                            " command line argument");
         }
         else if (t instanceof UnsatisfiedLinkError &&
-            msg.contains("Cannot load 32-bit SWT libraries on 64-bit JVM")) {
-            messageService.showMessage("Architecture Error",
-                "We're sorry, but it appears you're running 32-bit Lantern on a 64-bit JVM.");
+                msg.contains("Cannot load 32-bit SWT libraries on 64-bit JVM")) {
+            messageService
+                    .showMessage("Architecture Error",
+                            "We're sorry, but it appears you're running 32-bit Lantern on a 64-bit JVM.");
         }
         else if (!lanternStarted && set != null && set.isUiEnabled()) {
             LOG.info("Showing error to user...");
             messageService.showMessage("Startup Error",
-               "We're sorry, but there was an error starting Lantern " +
-               "described as '"+msg+"'.");
+                    "We're sorry, but there was an error starting Lantern " +
+                            "described as '" + msg + "'.");
         }
         if (exit) {
             LOG.info("Exiting Lantern");
             // Give the logger a second to report the error.
-            try {Thread.sleep(6000);} catch (final InterruptedException e) {}
+            try {
+                Thread.sleep(6000);
+            } catch (final InterruptedException e) {
+            }
             System.exit(1);
         }
     }
@@ -731,93 +749,66 @@ public class Launcher {
         return msg;
     }
 
-/*
-    private void processCommandLineOptions(final CommandLine cmd) {
-
-        final String ctrlOpt = OPTION_CONTROLLER_ID;
-        if (cmd.hasOption(ctrlOpt)) {
-            LanternClientConstants.setControllerId(
-                cmd.getOptionValue(ctrlOpt));
-        }
-
-        final String insOpt = OPTION_INSTANCE_ID;
-        if (cmd.hasOption(insOpt)) {
-            model.setInstanceId(cmd.getOptionValue(insOpt));
-        }
-
-        final String fbOpt = OPTION_AS_FALLBACK;
-        if (cmd.hasOption(fbOpt)) {
-            LanternUtils.setFallbackProxy(true);
-        }
-
-        final String secOpt = OPTION_OAUTH2_CLIENT_SECRETS_FILE;
-        if (cmd.hasOption(secOpt)) {
-            modelUtils.loadOAuth2ClientSecretsFile(
-                cmd.getOptionValue(secOpt));
-        }
-
-        final String credOpt = OPTION_OAUTH2_USER_CREDENTIALS_FILE;
-        if (cmd.hasOption(credOpt)) {
-            modelUtils.loadOAuth2UserCredentialsFile(
-                cmd.getOptionValue(credOpt));
-        }
-
-        //final Settings set = LanternHub.settings();
-
-        set.setUseTrustedPeers(parseOptionDefaultTrue(cmd, OPTION_TRUSTED_PEERS));
-        set.setUseAnonymousPeers(parseOptionDefaultTrue(cmd, OPTION_ANON_PEERS));
-        set.setUseLaeProxies(parseOptionDefaultTrue(cmd, OPTION_LAE));
-        set.setUseCentralProxies(parseOptionDefaultTrue(cmd, OPTION_CENTRAL));
-        set.setUdpProxyPriority(cmd.getOptionValue(OPTION_UDP_PROXY_PRIORITY, "lower").toUpperCase());
-        
-        final boolean tcp = parseOptionDefaultTrue(cmd, OPTION_TCP);
-        final boolean udp = parseOptionDefaultTrue(cmd, OPTION_UDP);
-        IceConfig.setTcp(tcp);
-        IceConfig.setUdp(udp);
-        set.setTcp(tcp);
-        set.setUdp(udp);
-
-        if (cmd.hasOption(OPTION_ACCESS_TOK)) {
-            set.setAccessToken(cmd.getOptionValue(OPTION_ACCESS_TOK));
-        }
-        
-        if (cmd.hasOption(OPTION_REFRESH_TOK)) {
-            final String refresh = cmd.getOptionValue(OPTION_REFRESH_TOK);
-            set.setRefreshToken(refresh);
-            Events.asyncEventBus().post(new RefreshTokenEvent(refresh));
-        }
-        // option to disable use of keychains in local privacy
-        if (cmd.hasOption(OPTION_DISABLE_KEYCHAIN)) {
-            LOG.info("Disabling use of system keychains");
-            set.setKeychainEnabled(false);
-        }
-        else {
-            set.setKeychainEnabled(true);
-        }
-
-        if (cmd.hasOption(OPTION_PASSWORD_FILE)) {
-            loadLocalPasswordFile(cmd.getOptionValue(OPTION_PASSWORD_FILE));
-        }
-
-        if (cmd.hasOption(OPTION_PUBLIC_API)) {
-            set.setBindToLocalhost(false);
-        }
-
-        LOG.info("Running API on port: {}", StaticSettings.getApiPort());
-        if (cmd.hasOption(OPTION_LAUNCHD)) {
-            LOG.debug("Running from launchd or launchd set on command line");
-            model.setLaunchd(true);
-        } else {
-            model.setLaunchd(false);
-        }
-
-        if (cmd.hasOption(OPTION_GIVE)) {
-            model.getSettings().setMode(Mode.give);
-        } else if (cmd.hasOption(OPTION_GET)) {
-            model.getSettings().setMode(Mode.get);
-        }
-    }
-    */
+    /*
+     * private void processCommandLineOptions(final CommandLine cmd) {
+     * 
+     * final String ctrlOpt = OPTION_CONTROLLER_ID; if (cmd.hasOption(ctrlOpt))
+     * { LanternClientConstants.setControllerId( cmd.getOptionValue(ctrlOpt)); }
+     * 
+     * final String insOpt = OPTION_INSTANCE_ID; if (cmd.hasOption(insOpt)) {
+     * model.setInstanceId(cmd.getOptionValue(insOpt)); }
+     * 
+     * final String fbOpt = OPTION_AS_FALLBACK; if (cmd.hasOption(fbOpt)) {
+     * LanternUtils.setFallbackProxy(true); }
+     * 
+     * final String secOpt = OPTION_OAUTH2_CLIENT_SECRETS_FILE; if
+     * (cmd.hasOption(secOpt)) { modelUtils.loadOAuth2ClientSecretsFile(
+     * cmd.getOptionValue(secOpt)); }
+     * 
+     * final String credOpt = OPTION_OAUTH2_USER_CREDENTIALS_FILE; if
+     * (cmd.hasOption(credOpt)) { modelUtils.loadOAuth2UserCredentialsFile(
+     * cmd.getOptionValue(credOpt)); }
+     * 
+     * //final Settings set = LanternHub.settings();
+     * 
+     * set.setUseTrustedPeers(parseOptionDefaultTrue(cmd,
+     * OPTION_TRUSTED_PEERS));
+     * set.setUseAnonymousPeers(parseOptionDefaultTrue(cmd, OPTION_ANON_PEERS));
+     * set.setUseLaeProxies(parseOptionDefaultTrue(cmd, OPTION_LAE));
+     * set.setUseCentralProxies(parseOptionDefaultTrue(cmd, OPTION_CENTRAL));
+     * set.setUdpProxyPriority(cmd.getOptionValue(OPTION_UDP_PROXY_PRIORITY,
+     * "lower").toUpperCase());
+     * 
+     * final boolean tcp = parseOptionDefaultTrue(cmd, OPTION_TCP); final
+     * boolean udp = parseOptionDefaultTrue(cmd, OPTION_UDP);
+     * IceConfig.setTcp(tcp); IceConfig.setUdp(udp); set.setTcp(tcp);
+     * set.setUdp(udp);
+     * 
+     * if (cmd.hasOption(OPTION_ACCESS_TOK)) {
+     * set.setAccessToken(cmd.getOptionValue(OPTION_ACCESS_TOK)); }
+     * 
+     * if (cmd.hasOption(OPTION_REFRESH_TOK)) { final String refresh =
+     * cmd.getOptionValue(OPTION_REFRESH_TOK); set.setRefreshToken(refresh);
+     * Events.asyncEventBus().post(new RefreshTokenEvent(refresh)); } // option
+     * to disable use of keychains in local privacy if
+     * (cmd.hasOption(OPTION_DISABLE_KEYCHAIN)) {
+     * LOG.info("Disabling use of system keychains");
+     * set.setKeychainEnabled(false); } else { set.setKeychainEnabled(true); }
+     * 
+     * if (cmd.hasOption(OPTION_PASSWORD_FILE)) {
+     * loadLocalPasswordFile(cmd.getOptionValue(OPTION_PASSWORD_FILE)); }
+     * 
+     * if (cmd.hasOption(OPTION_PUBLIC_API)) { set.setBindToLocalhost(false); }
+     * 
+     * LOG.info("Running API on port: {}", StaticSettings.getApiPort()); if
+     * (cmd.hasOption(OPTION_LAUNCHD)) {
+     * LOG.debug("Running from launchd or launchd set on command line");
+     * model.setLaunchd(true); } else { model.setLaunchd(false); }
+     * 
+     * if (cmd.hasOption(OPTION_GIVE)) { model.getSettings().setMode(Mode.give);
+     * } else if (cmd.hasOption(OPTION_GET)) {
+     * model.getSettings().setMode(Mode.get); } }
+     */
 
     public Injector getInjector() {
         return injector;
